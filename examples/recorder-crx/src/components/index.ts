@@ -27,3 +27,9 @@ export type { TabsProps, Tab, TabPanelProps } from './Tabs';
 
 // Advanced Components
 export { DatabaseTesting } from './DatabaseTesting';
+
+// NLP Components
+export { GherkinConverter } from './GherkinConverter';
+export { RequirementsParser } from './RequirementsParser';
+export { DocumentationGenerator } from './DocumentationGenerator';
+export { VoiceCommands } from './VoiceCommands';

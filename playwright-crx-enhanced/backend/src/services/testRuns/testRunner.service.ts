@@ -3,6 +3,7 @@ import { logger } from '../../utils/logger';
 import pool from '../../db';
 import { firefox, Browser, Page } from 'playwright-core';
 import { allureService } from '../allure.service';
+import { allureIntegration } from './allure-integration.service';
 
 interface TestRunContext {
   testRunId: string;
@@ -11,6 +12,7 @@ interface TestRunContext {
   ws?: WebSocketServer;
   browser?: Browser;
   page?: Page;
+  consoleLogs?: string[];
 }
 
 /**
@@ -39,9 +41,23 @@ export class TestRunnerService {
       const script = scriptRows[0];
       if (!script) throw new Error('Script not found');
 
-      // Start Allure test tracking
+      // Start Allure test tracking (old service - kept for backward compatibility)
       await allureService.startTest(testRunId, script.name);
-      logger.info('📊 Allure test tracking started');
+      
+      // Start enhanced Allure test tracking
+      await allureIntegration.startTest({
+        testRunId,
+        scriptId,
+        scriptName: script.name,
+        userId,
+        browser: 'firefox',
+        environment: process.env.NODE_ENV || 'development',
+      });
+      
+      // Configure Allure categories
+      allureIntegration.writeCategories();
+      
+      logger.info('🎭 Allure test tracking started (enhanced)');
 
       const startTime = Date.now();
       
@@ -50,14 +66,22 @@ export class TestRunnerService {
       
       const duration = Date.now() - startTime;
 
-      // End Allure test as passed
+      // End Allure test as passed (old service)
       await allureService.endTest(testRunId, 'passed');
-      logger.info('📊 Allure test marked as passed');
-
-      // Generate Allure report
-      await allureService.generateReport(testRunId);
-      const reportUrl = await allureService.getReportUrl(testRunId);
-      logger.info('📊 Allure report generated:', reportUrl);
+      
+      // Capture console logs if available
+      if (context.consoleLogs && context.consoleLogs.length > 0) {
+        allureIntegration.captureConsoleLogs(testRunId, context.consoleLogs);
+      }
+      
+      // Capture browser info
+      if (context.browser) {
+        await allureIntegration.captureBrowserInfo(context.browser);
+      }
+      
+      // End enhanced Allure test and generate report
+      const reportUrl = await allureIntegration.endTest(testRunId, 'passed');
+      logger.info('🎭 Allure report generated:', reportUrl);
 
       await pool.query(
         `UPDATE "TestRun" SET status = 'passed', "completedAt" = now(), duration = $2, "executionReportUrl" = $3 WHERE id = $1`,
@@ -77,10 +101,35 @@ export class TestRunnerService {
 
       // End Allure test as failed
       try {
+        // Old service
         await allureService.endTest(testRunId, 'failed', error.message);
-        await allureService.generateReport(testRunId);
-        const reportUrl = await allureService.getReportUrl(testRunId);
-        logger.info('📊 Allure report generated for failed test:', reportUrl);
+        
+        // Enhanced service - attach error details
+        allureIntegration.attachErrorDetails(testRunId, error);
+        
+        // Capture console logs if available
+        if (context?.consoleLogs && context.consoleLogs.length > 0) {
+          allureIntegration.captureConsoleLogs(testRunId, context.consoleLogs);
+        }
+        
+        // Capture failure screenshot if page is available
+        let screenshotPath: string | undefined;
+        if (context?.page) {
+          screenshotPath = await allureIntegration.captureScreenshot(
+            testRunId,
+            context.page,
+            'Test Failure'
+          ) || undefined;
+        }
+        
+        // End test and generate report
+        const reportUrl = await allureIntegration.endTest(
+          testRunId,
+          'failed',
+          error.message,
+          screenshotPath
+        );
+        logger.info('🎭 Allure report generated for failed test:', reportUrl);
 
         await pool.query(
           `UPDATE "TestRun" SET status = 'failed', "errorMsg" = $2, "completedAt" = now(), duration = $3, "executionReportUrl" = $4 WHERE id = $1`,
@@ -161,6 +210,9 @@ export class TestRunnerService {
 
       context.browser = browser;
       context.page = page;
+      
+      // Setup console log capture
+      context.consoleLogs = allureIntegration.setupConsoleCapture(page, context.testRunId);
 
       // Execute the actual script
       logger.info('Executing Playwright script...');
@@ -320,13 +372,40 @@ export class TestRunnerService {
       // Record step in Allure when completed (passed or failed)
       if (status === 'passed' || status === 'failed') {
         const stepName = `${action} ${selector || value || ''}`;
+        
+        // Old service
         await allureService.recordStep(
           context.testRunId,
           stepName,
           status,
           300
         );
-        logger.info(`📊 Allure step recorded: ${stepName} - ${status}`);
+        
+        // Enhanced service - with optional screenshot
+        if (context.page) {
+          await allureIntegration.recordStepWithScreenshot(
+            context.testRunId,
+            stepNumber,
+            action,
+            selector || '',
+            value || '',
+            status,
+            context.page,
+            errorMsg
+          );
+        } else {
+          allureIntegration.recordStep(
+            context.testRunId,
+            stepNumber,
+            action,
+            selector || '',
+            value || '',
+            status,
+            errorMsg
+          );
+        }
+        
+        logger.info(`🎭 Allure step recorded: ${stepName} - ${status}`);
       }
 
       if (context.ws) {

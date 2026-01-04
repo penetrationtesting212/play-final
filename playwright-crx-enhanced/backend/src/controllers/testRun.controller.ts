@@ -1,8 +1,10 @@
 import { Request, Response } from 'express';
 import { AppError } from '../middleware/errorHandler';
 import { allureService } from '../services/allure.service';
+import { testRunnerService } from '../services/testRuns/testRunner.service';
 import pool from '../db';
 import { randomUUID } from 'crypto';
+import { logger } from '../utils/logger';
 
 
 /**
@@ -101,49 +103,17 @@ export const startTestRun = async (req: Request, res: Response) => {
     );
     const testRun = rows[0];
 
-    try {
-      await allureService.startTest(testRun.id, script.name);
-    } catch (error) {
-      console.error('Failed to start Allure test:', error);
-    }
-
-    setTimeout(async () => {
-      try {
-        const mockSteps = [
-          { action: 'Navigate to page', status: 'passed' as const, duration: 500 },
-          { action: 'Fill input field', status: 'passed' as const, duration: 300 },
-          { action: 'Click submit button', status: 'passed' as const, duration: 200 },
-          { action: 'Verify success message', status: 'passed' as const, duration: 150 }
-        ];
-
-        for (const step of mockSteps) {
-          await allureService.recordStep(testRun.id, step.action, step.status, step.duration);
-        }
-
-        await allureService.endTest(testRun.id, 'passed');
-
-        // Generate Allure report
-        let reportUrl = '';
-        try {
-          await allureService.generateReport(testRun.id);
-          reportUrl = await allureService.getReportUrl(testRun.id);
-        } catch (error) {
-          console.error('Failed to generate Allure report:', error);
-        }
-
-        await pool.query(
-          `UPDATE "TestRun"
-           SET status = 'passed',
-               "completedAt" = now(),
-               duration = $2,
-               "executionReportUrl" = $3
-           WHERE id = $1`,
-          [testRun.id, mockSteps.reduce((sum, s) => sum + (s.duration || 0), 0), reportUrl]
-        );
-      } catch (error) {
-        console.error('Failed to complete mock test execution:', error);
-      }
-    }, 2000);
+    // Start headless Playwright test execution in background
+    logger.info(`🚀 Starting headless Playwright test execution for test run: ${testRun.id}`);
+    
+    // Execute test asynchronously (don't wait for completion)
+    testRunnerService.startTestRun(testRun.id, scriptId, userId)
+      .then(() => {
+        logger.info(`✅ Test run completed successfully: ${testRun.id}`);
+      })
+      .catch((error) => {
+        logger.error(`❌ Test run failed: ${testRun.id}`, error);
+      });
 
     res.status(201).json({ success: true, data: testRun });
   } catch (error: any) {
@@ -184,67 +154,25 @@ export const executeCurrentScript = async (req: Request, res: Response) => {
     );
     const testRun = rows[0];
 
-    try {
-      await allureService.startTest(testRun.id, `Current Script (${language})`);
-    } catch (error) {
-      console.error('Failed to start Allure test:', error);
-    }
-
-    // Simulate test execution (async)
-    setTimeout(async () => {
-      try {
-        const mockSteps = [
-          { action: 'Parse script code', status: 'passed' as const, duration: 300 },
-          { action: 'Initialize browser', status: 'passed' as const, duration: 500 },
-          { action: 'Execute script actions', status: 'passed' as const, duration: 800 },
-          { action: 'Verify results', status: 'passed' as const, duration: 200 }
-        ];
-
-        for (const step of mockSteps) {
-          await allureService.recordStep(testRun.id, step.action, step.status, step.duration);
-        }
-
-        await allureService.endTest(testRun.id, 'passed');
-
-        // Generate Allure report
-        let reportUrl = '';
-        try {
-          await allureService.generateReport(testRun.id);
-          reportUrl = await allureService.getReportUrl(testRun.id);
-        } catch (error) {
-          console.error('Failed to generate Allure report:', error);
-        }
-
-        await pool.query(
-          `UPDATE "TestRun"
-           SET status = 'passed',
-               "completedAt" = now(),
-               duration = $2,
-               "executionReportUrl" = $3
-           WHERE id = $1`,
-          [testRun.id, mockSteps.reduce((sum, s) => sum + (s.duration || 0), 0), reportUrl]
-        );
-
+    // Start headless Playwright test execution in background
+    logger.info(`🚀 Starting headless Playwright test execution for current script: ${testRun.id}`);
+    
+    // Execute test asynchronously (don't wait for completion)
+    testRunnerService.startTestRun(testRun.id, tempScriptId, userId)
+      .then(() => {
+        logger.info(`✅ Current script test run completed successfully: ${testRun.id}`);
+        
         // Clean up temporary script after test completes (with delay)
         setTimeout(async () => {
           await pool.query(
             `DELETE FROM "Script" WHERE id = $1`,
             [tempScriptId]
-          ).catch(err => console.error('Failed to cleanup temp script:', err));
-        }, 10000); // Wait 10 seconds before cleanup
-      } catch (error) {
-        console.error('Failed to complete current script execution:', error);
-        // Update test run as failed
-        await pool.query(
-          `UPDATE "TestRun"
-           SET status = 'failed',
-               "completedAt" = now(),
-               "errorMsg" = $2
-           WHERE id = $1`,
-          [testRun.id, String(error)]
-        ).catch(() => {});
-      }
-    }, 100); // Start execution almost immediately
+          ).catch(err => logger.error('Failed to cleanup temp script:', err));
+        }, 60000); // Wait 60 seconds before cleanup to allow report viewing
+      })
+      .catch((error) => {
+        logger.error(`❌ Current script test run failed: ${testRun.id}`, error);
+      });
 
     // Return immediately with running status
     res.status(201).json({ success: true, data: testRun });

@@ -15,6 +15,7 @@ import projectRoutes from './routes/project.routes';
 import testRunRoutes from './routes/testRun.routes';
 import extensionRoutes from './routes/extension.routes';
 import allureRoutes from './routes/allure.routes';
+import allureEnhancedRoutes from './routes/allure-enhanced.routes';
 import apiTestingRoutes from './routes/apiTesting.routes';
 import apiRequestRoutes from './routes/apiRequest.routes';
 import mlEnhancementRoutes from './routes/ml-enhancement.routes';
@@ -167,6 +168,7 @@ app.use('/api/scripts', scriptRoutes);
 app.use('/api/test-runs', testRunRoutes);
 app.use('/api/extensions', extensionRoutes);
 app.use('/api/allure', allureRoutes);
+app.use('/api/allure/v2', allureEnhancedRoutes); // Enhanced Allure with full Allure 2 support
 app.use('/api/api-testing', apiTestingRoutes);
 app.use('/api/api-requests', apiRequestRoutes);
 app.use('/api/ml', mlEnhancementRoutes);

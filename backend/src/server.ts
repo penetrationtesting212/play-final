@@ -134,6 +134,7 @@ app.get('/api', (req: Request, res: Response) => {
       projects: '/api/projects',
       database: '/api/database',
       testRuns: '/api/test-runs',
+      objectRepository: '/api/object-repository',
     },
     documentation: '/api/docs',
   });
@@ -156,6 +157,10 @@ try {
   // Test Run routes
   const testRunRoutes = require('./routes/testRun.routes');
   app.use('/api/test-runs', testRunRoutes.default || testRunRoutes);
+  
+  // Object Repository routes
+  const objectRepositoryRoutes = require('./routes/objectRepository.routes');
+  app.use('/api/object-repository', objectRepositoryRoutes.default || objectRepositoryRoutes);
   
   console.log('✅ Core routes loaded successfully');
 } catch (error) {

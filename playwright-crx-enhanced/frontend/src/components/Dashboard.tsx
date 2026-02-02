@@ -20,6 +20,7 @@ import ImportScriptModal from './ImportScriptModal';
 import ScriptValidationModal from './ScriptValidationModal';
 import ScriptCueCards from './ScriptCueCards';
 import TestDataManager from './TestDataManager';
+import TestDataValidation from './TestDataValidation';
 import DataDrivenTesting from './DataDrivenTesting';
 // import ErrorAnalysis from './ErrorAnalysis';
 import './Dashboard.css';
@@ -63,6 +64,7 @@ type ActiveView =
   | 'scripts'
   | 'runs'
   | 'testdata'
+  | 'testdatavalidation'
   | 'datadriventesting'
   | 'apitesting'
   | 'databasetesting'
@@ -355,6 +357,7 @@ Navigating to Test Runs...`);
     { id: 'scripts', icon: '📝', label: 'Scripts', category: 'Test Management' },
     { id: 'runs', icon: '▶️', label: 'Test Runs', category: 'Test Management' },
     { id: 'testdata', icon: '🗄️', label: 'Test Data', category: 'Data Management' },
+    { id: 'testdatavalidation', icon: '✅', label: 'Test Data Validation', category: 'Data Management' },
     { id: 'apitesting', icon: '🔌', label: 'API Testing', category: 'Testing Tools' },
     { id: 'databasetesting', icon: '🗃️', label: 'Database Testing', category: 'Testing Tools' },
     { id: 'allure', icon: '📈', label: 'Test Execution Reports', category: 'Reports' },
@@ -931,6 +934,9 @@ Navigating to Test Runs...`);
 
           {/* Test Data Management */}
           {activeView === 'testdata' && <TestDataManager />}
+
+          {/* Test Data Validation */}
+          {activeView === 'testdatavalidation' && <TestDataValidation />}
 
           {/* Data-Driven Testing with AI */}
           {activeView === 'datadriventesting' && <DataDrivenTesting />}

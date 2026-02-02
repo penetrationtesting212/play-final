@@ -22,6 +22,7 @@ import ScriptCueCards from './ScriptCueCards';
 import TestDataManager from './TestDataManager';
 import TestDataValidation from './TestDataValidation';
 import DataDrivenTesting from './DataDrivenTesting';
+import ExternalServerLogs from './ExternalServerLogs';
 // import ErrorAnalysis from './ErrorAnalysis';
 import './Dashboard.css';
 
@@ -68,6 +69,7 @@ type ActiveView =
   | 'datadriventesting'
   | 'apitesting'
   | 'databasetesting'
+  | 'externalserverlogs'
   | 'allure'
   | 'analytics'
   | 'settings';
@@ -360,6 +362,7 @@ Navigating to Test Runs...`);
     { id: 'testdatavalidation', icon: '✅', label: 'Test Data Validation', category: 'Data Management' },
     { id: 'apitesting', icon: '🔌', label: 'API Testing', category: 'Testing Tools' },
     { id: 'databasetesting', icon: '🗃️', label: 'Database Testing', category: 'Testing Tools' },
+    { id: 'externalserverlogs', icon: '📡', label: 'External Server Logs', category: 'Monitoring' },
     { id: 'allure', icon: '📈', label: 'Test Execution Reports', category: 'Reports' },
     { id: 'analytics', icon: '📉', label: 'Analytics', category: 'Reports' },
     { id: 'settings', icon: '⚙️', label: 'Settings', category: 'System' }
@@ -946,6 +949,9 @@ Navigating to Test Runs...`);
 
           {/* Database Testing */}
           {activeView === 'databasetesting' && <DatabaseTesting />}
+
+          {/* External Server Logs */}
+          {activeView === 'externalserverlogs' && <ExternalServerLogs />}
 
           {/* Execution Reports */}
           {activeView === 'allure' && (
